@@ -11,9 +11,20 @@ connectDB();
 
 const app = express();
 
-app.use(cors({
-    origin:'*'
-}))
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'https://tasktracker-6lr4-klpgvf9gx-abdullahs-projects-fee9960b.vercel.app',
+    'https://tasktracker-6lr4-nuwvdzptl-abdullahs-projects-fee9960b.vercel.app',
+    'https://tasktracker-6lr4-ktj8q9l5m-abdullahs-projects-fee9960b.vercel.app',
+    'https://tasktracker-vercel.vercel.app',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'AuthToken'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 app.get('/health', (req, res) => {
