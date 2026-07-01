@@ -12,8 +12,12 @@ const ForgotPasswordPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await forgotPassword({ email });
-      toast.success('If an account exists, a reset link has been sent.');
+      const response = await forgotPassword({ email });
+      if (response.resetURL) {
+        toast.info(`Reset link: ${response.resetURL}`);
+      } else {
+        toast.success('If an account exists, a reset link has been sent.');
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not process request');
     } finally {

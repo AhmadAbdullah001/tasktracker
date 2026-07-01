@@ -19,9 +19,13 @@ const SignupPage = () => {
     setLoading(true);
     try {
       if (step === 'credentials') {
-        await generateOtp({ email: form.email, purpose: 'signup' });
+        const response = await generateOtp({ email: form.email, purpose: 'signup' });
         setStep('otp');
-        toast.info('OTP sent to your email');
+        if (response.otp) {
+          toast.info(`OTP: ${response.otp}`);
+        } else {
+          toast.info('OTP sent to your email');
+        }
       } else {
         await verifyOtp({ email: form.email, otp: form.otp });
         await signup({ ...form, otp: form.otp });
