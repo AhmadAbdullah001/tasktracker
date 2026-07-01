@@ -121,7 +121,6 @@ router.post("/generate-otp", async (req, res) => {
       return res.status(500).json({ message: "Email credentials are not configured" });
     }
 
-    setImmediate(async () => {
       try {
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
@@ -132,7 +131,7 @@ router.post("/generate-otp", async (req, res) => {
       } catch (error) {
         console.warn("OTP email failed:", error.message);
       }
-    });
+  
 
     const response = { message: "OTP sent successfully" };
 
