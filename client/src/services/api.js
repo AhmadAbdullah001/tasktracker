@@ -1,7 +1,19 @@
 import axios from 'axios';
 
+const getApiBaseUrl = () => {
+  if (process.env.REACT_APP_API_BASE_URL) {
+    return process.env.REACT_APP_API_BASE_URL;
+  }
+
+  if (window.location.hostname === 'localhost') {
+    return 'http://localhost:5000/api';
+  }
+
+  return 'https://tasktracker-myq4.onrender.com/api';
+};
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
 });
 
 api.interceptors.request.use((config) => {
