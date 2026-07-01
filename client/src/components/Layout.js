@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutGrid, LogOut, Moon, Sun, CheckSquare } from 'lucide-react';
+import { LogOut, Moon, Sun, CheckSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Layout = ({ children, darkMode, setDarkMode }) => {

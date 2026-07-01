@@ -12,7 +12,7 @@ const TasksPage = () => {
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   const handleSubmit = async (formData) => {
     try {

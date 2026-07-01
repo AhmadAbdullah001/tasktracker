@@ -16,7 +16,7 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchTasks();
     fetchDashboard();
-  }, []);
+  }, [fetchDashboard, fetchTasks]);
 
   const handleCreateOrUpdate = async (formData) => {
     try {
