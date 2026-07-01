@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { taskApi } from '../services/api';
 
@@ -10,7 +10,7 @@ export const TaskProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -21,18 +21,18 @@ export const TaskProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
       const response = await taskApi.getDashboard();
       setDashboard(response.data.data || null);
     } catch (err) {
       setError('Unable to load dashboard');
     }
-  };
+  }, []);
 
-  const createTask = async (payload) => {
+  const createTask = useCallback(async (payload) => {
     try {
       const response = await taskApi.create(payload);
       setTasks((prev) => [response.data.data, ...prev]);
@@ -42,9 +42,9 @@ export const TaskProvider = ({ children }) => {
       toast.error(err.response?.data?.message || 'Unable to create task');
       throw err;
     }
-  };
+  }, []);
 
-  const updateTask = async (taskId, payload) => {
+  const updateTask = useCallback(async (taskId, payload) => {
     try {
       const response = await taskApi.update(taskId, payload);
       setTasks((prev) => prev.map((task) => (task._id === taskId ? response.data.data : task)));
@@ -54,9 +54,9 @@ export const TaskProvider = ({ children }) => {
       toast.error(err.response?.data?.message || 'Unable to update task');
       throw err;
     }
-  };
+  }, []);
 
-  const deleteTask = async (taskId) => {
+  const deleteTask = useCallback(async (taskId) => {
     try {
       await taskApi.delete(taskId);
       setTasks((prev) => prev.filter((task) => task._id !== taskId));
@@ -65,9 +65,9 @@ export const TaskProvider = ({ children }) => {
       toast.error(err.response?.data?.message || 'Unable to delete task');
       throw err;
     }
-  };
+  }, []);
 
-  const completeTask = async (taskId) => {
+  const completeTask = useCallback(async (taskId) => {
     try {
       const response = await taskApi.complete(taskId);
       setTasks((prev) => prev.map((task) => (task._id === taskId ? response.data.data : task)));
@@ -77,9 +77,9 @@ export const TaskProvider = ({ children }) => {
       toast.error(err.response?.data?.message || 'Unable to complete task');
       throw err;
     }
-  };
+  }, []);
 
-  const searchTasks = async (query) => {
+  const searchTasks = useCallback(async (query) => {
     setLoading(true);
     try {
       const response = await taskApi.search(query);
@@ -89,9 +89,9 @@ export const TaskProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filterTasks = async (status) => {
+  const filterTasks = useCallback(async (status) => {
     setLoading(true);
     try {
       const response = status ? await taskApi.getByStatus(status) : await taskApi.getAll();
@@ -101,9 +101,9 @@ export const TaskProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const sortTasks = async (sortBy) => {
+  const sortTasks = useCallback(async (sortBy) => {
     setLoading(true);
     try {
       const response = await taskApi.sort(sortBy);
@@ -113,7 +113,7 @@ export const TaskProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const value = useMemo(() => ({
     tasks,
@@ -130,7 +130,21 @@ export const TaskProvider = ({ children }) => {
     filterTasks,
     sortTasks,
     setTasks,
-  }), [tasks, dashboard, loading, error]);
+  }), [
+    tasks,
+    dashboard,
+    loading,
+    error,
+    fetchTasks,
+    fetchDashboard,
+    createTask,
+    updateTask,
+    deleteTask,
+    completeTask,
+    searchTasks,
+    filterTasks,
+    sortTasks,
+  ]);
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
 };
