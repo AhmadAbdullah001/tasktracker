@@ -42,6 +42,7 @@ export const authApi = {
   verifyOtp: (payload) => api.post('/auth/verify-otp', payload),
   resendOtp: (payload) => api.post('/auth/resend-OTP', payload),
   forgotPassword: (payload) => api.post('/auth/forgot-password', payload),
+  resetPassword: (payload) => api.post('/auth/reset-password', payload),
 };
 
 export const taskApi = {
