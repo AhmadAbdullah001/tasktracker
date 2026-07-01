@@ -20,12 +20,14 @@ const sendOtpEmail = async (email, otp) => {
       subject: "Your OTP Code",
       text: `Your OTP code is ${otp}`,
     });
+    return true;
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("OTP email failed, continuing in development:", error.message);
-      return;
+      return false;
     }
-    throw error;
+    console.warn("OTP email failed in production:", error.message);
+    return false;
   }
 };
 
@@ -116,7 +118,7 @@ router.post("/generate-otp", async (req, res) => {
 
   const otp = generateOtpCode();
   await storeOtpForEmail(normalizedEmail, purpose, otp);
-  await sendOtpEmail(normalizedEmail, otp);
+  void sendOtpEmail(normalizedEmail, otp);
 
   const response = { message: "OTP sent successfully" };
   if (process.env.NODE_ENV !== "production") {
@@ -150,7 +152,7 @@ router.post("/resend-OTP", async (req, res) => {
 
   const otp = generateOtpCode();
   await storeOtpForEmail(normalizedEmail, purpose, otp);
-  await sendOtpEmail(normalizedEmail, otp);
+  void sendOtpEmail(normalizedEmail, otp);
 
   const response = { message: "OTP sent successfully" };
   if (process.env.NODE_ENV !== "production") {
