@@ -10,6 +10,29 @@ const transporter = require("../config/Mailer");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const hasEmailCredentials = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+const getEmailFrom = () => process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
+const sendOtpEmail = async (to, otp) => {
+  try {
+    const info = await transporter.sendMail({
+      from: getEmailFrom(),
+      to,
+      subject: "Your OTP Code",
+      text: `Your OTP code is ${otp}`,
+      html: `<p>Your OTP code is <strong>${otp}</strong>.</p><p>This code expires in 5 minutes.</p>`,
+    });
+    console.log("OTP email sent:", {
+      to,
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    });
+  } catch (error) {
+    console.error("OTP email failed:", error);
+    throw new Error("Could not send OTP email. Please check the server email configuration.");
+  }
+};
 
 router.post("/signup", async (req, res) => {
   try {
@@ -100,40 +123,32 @@ router.post("/generate-otp", async (req, res) => {
 
     const normalizedEmail = (email || "").toLowerCase().trim();
 
-    if (purpose === "login") {
-      const user = await User.findOne({ email: normalizedEmail });
-      if (!user) {
-        return res.status(400).json({ message: "User not found" });
-      }
+    if (!hasEmailCredentials()) {
+      return res.status(500).json({ message: "Email credentials are not configured" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.deleteMany({ email: normalizedEmail, purpose });
-    await Otp.create({
+    const createdOtp = await Otp.create({
       email: normalizedEmail,
       purpose,
       code: otp,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    if (!hasEmailCredentials()) {
-      return res.status(500).json({ message: "Email credentials are not configured" });
+    try {
+      await sendOtpEmail(normalizedEmail, otp);
+    } catch (error) {
+      await Otp.deleteOne({ _id: createdOtp._id });
+      return res.status(502).json({ message: error.message });
     }
-
-      try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: normalizedEmail,
-          subject: "Your OTP Code",
-          text: `Your OTP code is ${otp}`,
-        });
-      } catch (error) {
-        console.warn("OTP email failed:", error.message);
-      }
   
 
     const response = { message: "OTP sent successfully" };
+    if (process.env.NODE_ENV !== "production") {
+      response.otp = otp;
+    }
 
     return res.status(200).json(response);
   } catch (error) {
@@ -184,31 +199,27 @@ router.post("/resend-OTP", async (req, res) => {
       }
     }
 
+    if (!hasEmailCredentials()) {
+      return res.status(500).json({ message: "Email credentials are not configured" });
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.deleteMany({ email: normalizedEmail, purpose });
-    await Otp.create({
+    const createdOtp = await Otp.create({
       email: normalizedEmail,
       purpose,
       code: otp,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    if (!hasEmailCredentials()) {
-      return res.status(500).json({ message: "Email credentials are not configured" });
-    }
-
    
-      try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: normalizedEmail,
-          subject: "Your OTP Code",
-          text: `Your OTP code is ${otp}`,
-        });
-      } catch (error) {
-        console.warn("OTP resend email failed:", error.message);
-      }
+    try {
+      await sendOtpEmail(normalizedEmail, otp);
+    } catch (error) {
+      await Otp.deleteOne({ _id: createdOtp._id });
+      return res.status(502).json({ message: error.message });
+    }
     
 
     const response = { message: "OTP sent successfully" };
