@@ -1,7 +1,17 @@
 const RESEND_API_URL = "https://api.resend.com";
 
 const getApiKey = () => process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY;
-const getDefaultFrom = () => process.env.EMAIL_FROM || "TaskTracker <onboarding@resend.dev>";
+const getDefaultFrom = () => {
+  if (process.env.EMAIL_FROM) {
+    return process.env.EMAIL_FROM;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return "TaskTracker <onboarding@resend.dev>";
+  }
+
+  return null;
+};
 
 const parseRecipients = (value) => {
   if (Array.isArray(value)) {
@@ -44,10 +54,17 @@ const requestResend = async (path, options = {}) => {
 };
 
 const sendMail = async ({ from, to, subject, text, html }) => {
+  const resolvedFrom = from || getDefaultFrom();
+  if (!resolvedFrom) {
+    throw new Error(
+      "EMAIL_FROM is required in production and must be a verified Resend sender address."
+    );
+  }
+
   const data = await requestResend("/emails", {
     method: "POST",
     body: JSON.stringify({
-      from: from || getDefaultFrom(),
+      from: resolvedFrom,
       to: parseRecipients(to),
       subject,
       text,
