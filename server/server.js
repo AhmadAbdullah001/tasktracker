@@ -11,19 +11,11 @@ connectDB();
 
 const app = express();
 
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'https://tasktracker-6lr4-klpgvf9gx-abdullahs-projects-fee9960b.vercel.app',
-    'https://tasktracker-6lr4-nuwvdzptl-abdullahs-projects-fee9960b.vercel.app',
-    'https://tasktracker-6lr4-ktj8q9l5m-abdullahs-projects-fee9960b.vercel.app',
-    'https://tasktracker-vercel.vercel.app',
-  ],
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'AuthToken'],
-};
-
-app.use(cors(corsOptions));
+}));
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
