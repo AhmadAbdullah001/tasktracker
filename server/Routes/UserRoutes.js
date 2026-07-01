@@ -34,6 +34,33 @@ const sendOtpEmail = async (to, otp) => {
   }
 };
 
+router.get("/mail-health", async (req, res) => {
+  if (!hasEmailCredentials()) {
+    return res.status(500).json({
+      configured: false,
+      ready: false,
+      message: "Email credentials are not configured",
+    });
+  }
+
+  try {
+    await transporter.verify();
+    return res.status(200).json({
+      configured: true,
+      ready: true,
+      message: "Email transport is ready",
+    });
+  } catch (error) {
+    console.error("Email transport health check failed:", error);
+    return res.status(502).json({
+      configured: true,
+      ready: false,
+      message: error.response || error.message,
+      code: error.code,
+    });
+  }
+});
+
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password, otp } = req.body;
