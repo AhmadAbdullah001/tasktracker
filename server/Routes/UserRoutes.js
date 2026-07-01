@@ -98,6 +98,13 @@ router.post("/generate-otp", async (req, res) => {
 
     const normalizedEmail = (email || "").toLowerCase().trim();
 
+    if (purpose === "signup") {
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.deleteMany({ email: normalizedEmail, purpose });
