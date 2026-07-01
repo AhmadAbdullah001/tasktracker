@@ -1,43 +1,78 @@
-const nodemailer = require("nodemailer");
-const dns = require("dns");
+const RESEND_API_URL = "https://api.resend.com";
 
-const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-const SMTP_SECURE = SMTP_PORT === 465;
+const getApiKey = () => process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY;
+const getDefaultFrom = () => process.env.EMAIL_FROM || "TaskTracker <onboarding@resend.dev>";
 
-const getIPv4SocketOptions = (options, callback) => {
-  dns.resolve4(SMTP_HOST, (error, addresses) => {
-    if (error) {
-      return callback(error);
-    }
+const parseRecipients = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
 
-    return callback(null, {
-      host: addresses[0],
-      port: SMTP_PORT,
-      servername: SMTP_HOST,
-      tls: {
-        servername: SMTP_HOST,
-      },
-    });
-  });
+  return value
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
 };
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_SECURE,
-  requireTLS: !SMTP_SECURE,
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000,
-  getSocket: getIPv4SocketOptions,
-  tls: {
-    servername: SMTP_HOST,
-  },
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const requestResend = async (path, options = {}) => {
+  const apiKey = getApiKey();
 
-module.exports = transporter;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+
+  const response = await fetch(`${RESEND_API_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.message || data?.error || "Email service request failed";
+    const error = new Error(message);
+    error.statusCode = response.status;
+    error.response = data;
+    throw error;
+  }
+
+  return data;
+};
+
+const sendMail = async ({ from, to, subject, text, html }) => {
+  const data = await requestResend("/emails", {
+    method: "POST",
+    body: JSON.stringify({
+      from: from || getDefaultFrom(),
+      to: parseRecipients(to),
+      subject,
+      text,
+      html,
+    }),
+  });
+
+  return {
+    messageId: data.id,
+    accepted: parseRecipients(to),
+    rejected: [],
+    response: "Queued by Resend",
+    provider: "resend",
+  };
+};
+
+const verify = async () => {
+  await requestResend("/domains", { method: "GET" });
+  return true;
+};
+
+module.exports = {
+  sendMail,
+  verify,
+  isConfigured: () => Boolean(getApiKey()),
+  getDefaultFrom,
+  provider: "resend",
+};

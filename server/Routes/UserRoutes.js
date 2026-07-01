@@ -9,8 +9,8 @@ const SECRET_KEY = process.env.SECRET_KEY;
 const transporter = require("../config/Mailer");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
-const hasEmailCredentials = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-const getEmailFrom = () => process.env.EMAIL_FROM || process.env.EMAIL_USER;
+const hasEmailCredentials = () => transporter.isConfigured();
+const getEmailFrom = () => transporter.getDefaultFrom();
 
 const sendOtpEmail = async (to, otp) => {
   try {
@@ -27,6 +27,7 @@ const sendOtpEmail = async (to, otp) => {
       accepted: info.accepted,
       rejected: info.rejected,
       response: info.response,
+      provider: info.provider,
     });
   } catch (error) {
     console.error("OTP email failed:", error);
@@ -39,7 +40,8 @@ router.get("/mail-health", async (req, res) => {
     return res.status(500).json({
       configured: false,
       ready: false,
-      message: "Email credentials are not configured",
+      provider: transporter.provider,
+      message: "RESEND_API_KEY is not configured",
     });
   }
 
@@ -48,13 +50,15 @@ router.get("/mail-health", async (req, res) => {
     return res.status(200).json({
       configured: true,
       ready: true,
-      message: "Email transport is ready",
+      provider: transporter.provider,
+      message: "Email service is ready",
     });
   } catch (error) {
     console.error("Email transport health check failed:", error);
     return res.status(502).json({
       configured: true,
       ready: false,
+      provider: transporter.provider,
       message: error.response || error.message,
       code: error.code,
     });
@@ -151,7 +155,7 @@ router.post("/generate-otp", async (req, res) => {
     const normalizedEmail = (email || "").toLowerCase().trim();
 
     if (!hasEmailCredentials()) {
-      return res.status(500).json({ message: "Email credentials are not configured" });
+      return res.status(500).json({ message: "Email service is not configured" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -227,7 +231,7 @@ router.post("/resend-OTP", async (req, res) => {
     }
 
     if (!hasEmailCredentials()) {
-      return res.status(500).json({ message: "Email credentials are not configured" });
+      return res.status(500).json({ message: "Email service is not configured" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -283,12 +287,12 @@ router.post("/forgot-password", async (req, res) => {
     const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
     if (!hasEmailCredentials()) {
-      return res.status(500).json({ success: false, message: "Email credentials are not configured" });
+      return res.status(500).json({ success: false, message: "Email service is not configured" });
     }
 
     try {
       await transporter.sendMail({
-        from: process.env.EMAIL_USER,
+        from: getEmailFrom(),
         to: normalizedEmail,
         subject: "Reset your password",
         text: `Use the following link to reset your password: ${resetURL}`,
