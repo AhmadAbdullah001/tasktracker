@@ -6,64 +6,8 @@ const Otp = require("../Database/Schema/OtpSchema");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY;
-const transporter = require("../config/Mailer");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
-const hasEmailCredentials = () => transporter.isConfigured();
-const getEmailFrom = () => transporter.getDefaultFrom();
-
-const sendOtpEmail = async (to, otp) => {
-  try {
-    const info = await transporter.sendMail({
-      from: getEmailFrom(),
-      to,
-      subject: "Your OTP Code",
-      text: `Your OTP code is ${otp}`,
-      html: `<p>Your OTP code is <strong>${otp}</strong>.</p><p>This code expires in 5 minutes.</p>`,
-    });
-    console.log("OTP email sent:", {
-      to,
-      messageId: info.messageId,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      response: info.response,
-      provider: info.provider,
-    });
-  } catch (error) {
-    console.error("OTP email failed:", error);
-    throw new Error("Could not send OTP email. Please check the server email configuration.");
-  }
-};
-
-router.get("/mail-health", async (req, res) => {
-  if (!hasEmailCredentials()) {
-    return res.status(500).json({
-      configured: false,
-      ready: false,
-      provider: transporter.provider,
-      message: "RESEND_API_KEY is not configured",
-    });
-  }
-
-  try {
-    await transporter.verify();
-    return res.status(200).json({
-      configured: true,
-      ready: true,
-      provider: transporter.provider,
-      message: "Email service is ready",
-    });
-  } catch (error) {
-    console.error("Email transport health check failed:", error);
-    return res.status(502).json({
-      configured: true,
-      ready: false,
-      provider: transporter.provider,
-      message: error.response || error.message,
-      code: error.code,
-    });
-  }
-});
 
 router.post("/signup", async (req, res) => {
   try {
@@ -157,34 +101,17 @@ router.post("/generate-otp", async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.deleteMany({ email: normalizedEmail, purpose });
-    const createdOtp = await Otp.create({
+    await Otp.create({
       email: normalizedEmail,
       purpose,
       code: otp,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    if (!hasEmailCredentials()) {
-      return res.status(200).json({
-        message: "OTP generated successfully",
-        otp,
-      });
-    }
-
-    try {
-      await sendOtpEmail(normalizedEmail, otp);
-    } catch (error) {
-      await Otp.deleteOne({ _id: createdOtp._id });
-      return res.status(502).json({ message: error.message });
-    }
-  
-
-    const response = { message: "OTP sent successfully" };
-    if (process.env.NODE_ENV !== "production") {
-      response.otp = otp;
-    }
-
-    return res.status(200).json(response);
+    return res.status(200).json({
+      message: "OTP generated successfully",
+      otp,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -236,35 +163,17 @@ router.post("/resend-OTP", async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await Otp.deleteMany({ email: normalizedEmail, purpose });
-    const createdOtp = await Otp.create({
+    await Otp.create({
       email: normalizedEmail,
       purpose,
       code: otp,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    if (!hasEmailCredentials()) {
-      return res.status(200).json({
-        message: "OTP generated successfully",
-        otp,
-      });
-    }
-
-   
-    try {
-      await sendOtpEmail(normalizedEmail, otp);
-    } catch (error) {
-      await Otp.deleteOne({ _id: createdOtp._id });
-      return res.status(502).json({ message: error.message });
-    }
-    
-
-    const response = { message: "OTP sent successfully" };
-    if (process.env.NODE_ENV !== "production") {
-      response.otp = otp;
-    }
-
-    return res.status(200).json(response);
+    return res.status(200).json({
+      message: "OTP generated successfully",
+      otp,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -292,29 +201,10 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
-    if (!hasEmailCredentials()) {
-      return res.status(200).json({
-        success: true,
-        message: "Reset link generated successfully",
-        resetURL,
-      });
-    }
-
-    try {
-      await transporter.sendMail({
-        from: getEmailFrom(),
-        to: normalizedEmail,
-        subject: "Reset your password",
-        text: `Use the following link to reset your password: ${resetURL}`,
-        html: `<p>Use the following link to reset your password:</p><p><a href="${resetURL}">${resetURL}</a></p>`,
-      });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: error.message });
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "If an account exists, a reset link has been sent.",
+      message: "Reset link generated successfully",
+      resetURL,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

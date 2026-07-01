@@ -41,8 +41,12 @@ const SignupPage = () => {
   const handleResendOtp = async () => {
     setResending(true);
     try {
-      await resendOtp({ email: form.email, purpose: 'signup' });
-      toast.info('A new OTP has been sent.');
+      const response = await resendOtp({ email: form.email, purpose: 'signup' });
+      if (response.otp) {
+        toast.info(`Resent OTP: ${response.otp}`);
+      } else {
+        toast.info('A new OTP has been sent.');
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not resend OTP');
     } finally {
