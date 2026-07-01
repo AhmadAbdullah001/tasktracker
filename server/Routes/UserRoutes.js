@@ -9,6 +9,7 @@ const SECRET_KEY = process.env.SECRET_KEY;
 const transporter = require("../config/Mailer");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
+const hasEmailCredentials = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 
 router.post("/signup", async (req, res) => {
   try {
@@ -116,6 +117,10 @@ router.post("/generate-otp", async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
+    if (!hasEmailCredentials()) {
+      return res.status(500).json({ message: "Email credentials are not configured" });
+    }
+
     setImmediate(async () => {
       try {
         await transporter.sendMail({
@@ -130,9 +135,6 @@ router.post("/generate-otp", async (req, res) => {
     });
 
     const response = { message: "OTP sent successfully" };
-    if (process.env.NODE_ENV !== "production") {
-      response.otp = otp;
-    }
 
     return res.status(200).json(response);
   } catch (error) {
@@ -193,6 +195,10 @@ router.post("/resend-OTP", async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
+    if (!hasEmailCredentials()) {
+      return res.status(500).json({ message: "Email credentials are not configured" });
+    }
+
     setImmediate(async () => {
       try {
         await transporter.sendMail({
@@ -239,14 +245,7 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      if (process.env.NODE_ENV !== "production") {
-        return res.status(200).json({
-          success: true,
-          message: "Reset link generated successfully.",
-          resetUrl: resetURL,
-        });
-      }
+    if (!hasEmailCredentials()) {
       return res.status(500).json({ success: false, message: "Email credentials are not configured" });
     }
 
