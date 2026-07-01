@@ -116,16 +116,18 @@ router.post("/generate-otp", async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: normalizedEmail,
-        subject: "Your OTP Code",
-        text: `Your OTP code is ${otp}`,
-      });
-    } catch (error) {
-      return res.status(500).json({ message: error.message });
-    }
+    setImmediate(async () => {
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: normalizedEmail,
+          subject: "Your OTP Code",
+          text: `Your OTP code is ${otp}`,
+        });
+      } catch (error) {
+        console.warn("OTP email failed:", error.message);
+      }
+    });
 
     const response = { message: "OTP sent successfully" };
     if (process.env.NODE_ENV !== "production") {
@@ -191,16 +193,18 @@ router.post("/resend-OTP", async (req, res) => {
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
 
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: normalizedEmail,
-        subject: "Your OTP Code",
-        text: `Your OTP code is ${otp}`,
-      });
-    } catch (error) {
-      return res.status(500).json({ message: error.message });
-    }
+    setImmediate(async () => {
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: normalizedEmail,
+          subject: "Your OTP Code",
+          text: `Your OTP code is ${otp}`,
+        });
+      } catch (error) {
+        console.warn("OTP resend email failed:", error.message);
+      }
+    });
 
     const response = { message: "OTP sent successfully" };
     if (process.env.NODE_ENV !== "production") {
