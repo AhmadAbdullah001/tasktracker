@@ -134,6 +134,8 @@ router.post("/generate-otp", async (req, res) => {
       }
     });
 
+    console.log(normalizedEmail, process.env.EMAIL_USER, process.env.EMAIL_PASS, otp);
+
     const response = { message: "OTP sent successfully" };
 
     return res.status(200).json(response);
