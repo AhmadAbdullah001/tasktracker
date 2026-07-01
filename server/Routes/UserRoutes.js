@@ -2,14 +2,15 @@ const express = require("express");
 const crypto = require("crypto");
 const router = express.Router();
 const User = require("../Database/Schema/UserSchema");
+const Otp = require("../Database/Schema/OtpSchema");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY;
-const redisClient = require("../config/Redis");
 const transporter = require("../config/Mailer");
 
 const normalizeEmail = (email) => (email || "").toLowerCase().trim();
 const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+const OTP_TTL_MS = 5 * 60 * 1000;
 
 const sendOtpEmail = async (email, otp) => {
   try {
@@ -28,11 +29,32 @@ const sendOtpEmail = async (email, otp) => {
   }
 };
 
-const verifyOtpForEmail = async (email, otp) => {
-  const storedOtp = await redisClient.get(`otp:${email}`);
-  if (!storedOtp) return false;
-  if (storedOtp !== otp.toString()) return false;
+const storeOtpForEmail = async (email, purpose, otp) => {
+  await Otp.deleteMany({ email, purpose });
+  await Otp.create({
+    email,
+    purpose,
+    code: otp.toString(),
+    expiresAt: new Date(Date.now() + OTP_TTL_MS),
+  });
+};
 
+const verifyOtpForEmail = async (email, purpose, otp) => {
+  const storedOtp = await Otp.findOne({
+    email,
+    purpose,
+    code: otp.toString(),
+    expiresAt: { $gt: new Date() },
+  });
+
+  return Boolean(storedOtp);
+};
+
+const consumeOtpForEmail = async (email, purpose, otp) => {
+  const isValid = await verifyOtpForEmail(email, purpose, otp);
+  if (!isValid) return false;
+
+  await Otp.deleteMany({ email, purpose, code: otp.toString() });
   return true;
 };
 
@@ -49,7 +71,7 @@ router.post("/signup", async (req, res) => {
   const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) return res.status(400).json({ message: "User already exists" });
 
-  const isOtpValid = await verifyOtpForEmail(normalizedEmail, otp);
+  const isOtpValid = await consumeOtpForEmail(normalizedEmail, "signup", otp);
   if (!isOtpValid) return res.status(400).json({ message: "Invalid or expired OTP" });
 
   const salt = await bcrypt.genSalt(10);
@@ -83,7 +105,7 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/generate-otp", async (req, res) => {
-  const { email, purpose = "login" } = req.body;
+  const { email, purpose = "signup" } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
   const normalizedEmail = normalizeEmail(email);
@@ -93,7 +115,7 @@ router.post("/generate-otp", async (req, res) => {
   }
 
   const otp = generateOtpCode();
-  await redisClient.setEx(`otp:${normalizedEmail}`, 300, otp);
+  await storeOtpForEmail(normalizedEmail, purpose, otp);
   await sendOtpEmail(normalizedEmail, otp);
 
   const response = { message: "OTP sent successfully" };
@@ -104,20 +126,20 @@ router.post("/generate-otp", async (req, res) => {
 });
 
 router.post("/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, purpose = "signup" } = req.body;
   if (!email || !otp) {
     return res.status(400).json({ message: "Email and OTP are required" });
   }
 
   const normalizedEmail = normalizeEmail(email);
-  const isOtpValid = await verifyOtpForEmail(normalizedEmail, otp);
+  const isOtpValid = await verifyOtpForEmail(normalizedEmail, purpose, otp);
   if (!isOtpValid) return res.status(400).json({ message: "Invalid or expired OTP" });
 
   res.status(200).json({ message: "OTP verified successfully" });
 });
 
 router.post("/resend-OTP", async (req, res) => {
-  const { email, purpose = "login" } = req.body;
+  const { email, purpose = "signup" } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
   const normalizedEmail = normalizeEmail(email);
@@ -127,7 +149,7 @@ router.post("/resend-OTP", async (req, res) => {
   }
 
   const otp = generateOtpCode();
-  await redisClient.setEx(`otp:${normalizedEmail}`, 300, otp);
+  await storeOtpForEmail(normalizedEmail, purpose, otp);
   await sendOtpEmail(normalizedEmail, otp);
 
   const response = { message: "OTP sent successfully" };
